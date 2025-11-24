@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Lista de nombres compartida</title>
+  <title>Amigo Secreto</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     body {
@@ -80,6 +80,12 @@
     #btnReload {
       background: #64748b;
     }
+    #btnReload[disabled] {
+      opacity: 0.5;
+      cursor: not-allowed;
+      background: #cfd8dc;
+      color: #888;
+    }
     #btnReload:active {
       background: #475569;
     }
@@ -88,6 +94,12 @@
     }
     #btnRestaurar:active {
       background: #059669;
+    }
+    #btnAceptar[disabled] {
+      opacity: 0.5;
+      cursor: not-allowed;
+      background: #cfd8dc;
+      color: #888;
     }
     @media (max-width: 500px) {
       .container {
@@ -109,14 +121,13 @@
 </head>
 <body>
   <div class="container">
-    <h2>Lista de nombres compartida</h2>
+    <h2>Amigo Secreto</h2>
     <span class="nombre-actual-label" id="nombreActual"></span>
     <div class="cantidad-label">
       Quedan <span id="cantidadNombres"></span> nombre(s) en la lista
     </div>
     <button id="btnAceptar">Aceptar</button>
-    <button id="btnReload">Reload</button>
-
+    <button id="btnReload">¿Eres tú MISMO?</button>
     <div class="restaurar-section">
       <div class="error-msg" id="errorMsg"></div>
       <input type="password" id="passwordInput" placeholder="Contraseña para restaurar">
@@ -127,7 +138,11 @@
   <script>
     let nombres = [];
     let nombreActual = "";
+    let ronda = null;
     const PASSWORD_CORRECTA = "UTN2025";
+    const LS_KEY_PREFIX = "reloadHechoEnRondaV3_";
+    const LS_NOMBRE_CLAVE = "nombreMostradoUltimoV3";
+    const LS_KEY_ACEPTAR_PREFIX = "aceptarHechoEnRondaV3_";
 
     function obtenerNombreAleatorio(arr) {
       if (arr.length === 0) return "Lista vacía";
@@ -135,28 +150,85 @@
       return arr[idx];
     }
 
+    function getLocalKeyReload() {
+      return LS_KEY_PREFIX + ronda;
+    }
+    function getLocalKeyAceptar() {
+      return LS_KEY_ACEPTAR_PREFIX + ronda;
+    }
+
     function cargarNombres(setRandom = true) {
       fetch('/nombres')
         .then(res => res.json())
         .then(data => {
-          nombres = data;
+          nombres = data.nombres;
+          ronda = data.ronda;
           mostrarNombres(setRandom);
+          verificarEstadoReload();
+          verificarEstadoAceptar();
         });
     }
 
     function mostrarNombres(setRandom = true) {
       if (nombres.length === 0) {
         nombreActual = "Lista vacía";
+        localStorage.removeItem(LS_NOMBRE_CLAVE);
       } else if (setRandom) {
         nombreActual = obtenerNombreAleatorio(nombres);
+        localStorage.setItem(LS_NOMBRE_CLAVE, nombreActual);
+      } else {
+        let nombreGuardado = localStorage.getItem(LS_NOMBRE_CLAVE);
+        if (nombreGuardado && nombres.includes(nombreGuardado)) {
+          nombreActual = nombreGuardado;
+        } else {
+          nombreActual = obtenerNombreAleatorio(nombres);
+          localStorage.setItem(LS_NOMBRE_CLAVE, nombreActual);
+        }
       }
       document.getElementById('nombreActual').textContent = nombreActual;
       document.getElementById('cantidadNombres').textContent = nombres.length;
+    }
+
+    function resetReloadFlag() {
+      localStorage.removeItem(getLocalKeyReload());
+      document.getElementById('btnReload').disabled = false;
+    }
+    function marcarReloadRealizado() {
+      localStorage.setItem(getLocalKeyReload(), "1");
+      document.getElementById('btnReload').disabled = true;
+    }
+    function verificarEstadoReload() {
+      if (ronda === null) return;
+      if (localStorage.getItem(getLocalKeyReload()) === "1") {
+        document.getElementById('btnReload').disabled = true;
+      } else {
+        document.getElementById('btnReload').disabled = false;
+      }
+    }
+
+    function resetAceptarFlag() {
+      localStorage.removeItem(getLocalKeyAceptar());
       document.getElementById('btnAceptar').disabled = (nombres.length === 0);
+    }
+    function marcarAceptarRealizado() {
+      localStorage.setItem(getLocalKeyAceptar(), "1");
+      document.getElementById('btnAceptar').disabled = true;
+    }
+    function verificarEstadoAceptar() {
+      if (ronda === null) return;
+      if (localStorage.getItem(getLocalKeyAceptar()) === "1" || nombres.length === 0) {
+        document.getElementById('btnAceptar').disabled = true;
+      } else {
+        document.getElementById('btnAceptar').disabled = false;
+      }
     }
 
     document.getElementById('btnAceptar').onclick = function() {
-      if (nombres.length > 0 && nombreActual !== "Lista vacía") {
+      if (
+        nombres.length > 0
+        && nombreActual !== "Lista vacía"
+        && !document.getElementById('btnAceptar').disabled
+      ) {
         fetch('/aceptar', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -165,17 +237,21 @@
         .then(res => res.json())
         .then(data => {
           nombres = data.nombres;
-          mostrarNombres(true);
+          ronda = data.ronda;
+          mostrarNombres(false);
+          marcarAceptarRealizado();
+          verificarEstadoReload();
         });
       }
     };
 
     document.getElementById('btnReload').onclick = function() {
+      if (document.getElementById('btnReload').disabled) return;
       cargarNombres(true);
+      marcarReloadRealizado();
     };
 
     document.getElementById('btnRestaurar').onclick = function() {
-      // Lee la contraseña
       const pw = document.getElementById('passwordInput').value;
       const errorMsg = document.getElementById('errorMsg');
       errorMsg.textContent = "";
@@ -183,7 +259,6 @@
         errorMsg.textContent = "Contraseña incorrecta";
         return;
       }
-      // Reset lista en el servidor
       fetch('/restaurar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
@@ -191,14 +266,22 @@
       .then(res => res.json())
       .then(data => {
         nombres = data.nombres;
+        ronda = data.ronda;
         mostrarNombres(true);
         errorMsg.textContent = "¡Lista restaurada!";
         setTimeout(() => { errorMsg.textContent = ""; }, 2000);
         document.getElementById('passwordInput').value = "";
+        resetReloadFlag();
+        resetAceptarFlag();
+        localStorage.removeItem(LS_NOMBRE_CLAVE);
+        verificarEstadoReload();
+        verificarEstadoAceptar();
       });
     };
 
-    cargarNombres(true);
+    window.onload = function() {
+      cargarNombres(false);
+    };
   </script>
 </body>
 </html>
