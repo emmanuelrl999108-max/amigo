@@ -5,7 +5,8 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // --- DATOS EN MEMORIA GLOBAL (no persistente) ---
-let nombres = ['Juan', 'Ana', 'Luis', 'María', 'Pedro'];
+const nombresOriginales = ['Emma', 'Chino', 'Jared', 'Mela', 'Wes'];
+let nombres = [...nombresOriginales];
 
 app.use(cors());
 app.use(express.json());
@@ -31,6 +32,11 @@ app.get('/reload', (req, res) => {
 // Para todas las rutas no API servir el HTML
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+app.post('/restaurar', (req, res) => {
+  nombres = [...nombresOriginales];
+  res.json({ success: true, nombres });
 });
 
 app.listen(PORT, () => {

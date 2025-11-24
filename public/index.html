@@ -3,40 +3,160 @@
 <head>
   <meta charset="UTF-8">
   <title>Lista de nombres compartida</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: #f8fafc;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+    }
+    .container {
+      background: #fff;
+      margin-top: 60px;
+      padding: 32px;
+      border-radius: 18px;
+      box-shadow: 0 6px 30px rgba(0,0,0,0.09);
+      max-width: 400px;
+      width: 100%;
+      text-align: center;
+    }
+    h2 {
+      color: #1e293b;
+      margin-bottom: 10px;
+    }
+    .nombre-actual-label {
+      display: block;
+      font-size: 1.2rem;
+      margin: 28px 0 10px 0;
+      min-height: 32px;
+      color: #1565c0;
+      font-weight: bold;
+      letter-spacing: 1px;
+    }
+    .cantidad-label {
+      color: #475569;
+      margin-bottom: 20px;
+      font-size: 1.07rem;
+    }
+    .restaurar-section {
+      margin-top: 24px;
+      margin-bottom: 10px;
+    }
+    input[type="password"] {
+      padding: 8px;
+      border-radius: 5px;
+      border: 1px solid #b4b9ba;
+      width: 70%;
+      font-size: 1rem;
+      margin-right: 8px;
+    }
+    .error-msg {
+      color: #dc2626;
+      font-size: 1rem;
+      margin-bottom: 4px;
+      height: 20px;
+    }
+    button {
+      margin: 8px 10px 22px 10px;
+      padding: 10px 24px;
+      background: #2563eb;
+      border: none;
+      border-radius: 5px;
+      color: white;
+      font-size: 1.05rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+    }
+    button:active {
+      background: #1e40af;
+      transform: scale(0.98);
+    }
+    #btnReload {
+      background: #64748b;
+    }
+    #btnReload:active {
+      background: #475569;
+    }
+    #btnRestaurar {
+      background: #10b981;
+    }
+    #btnRestaurar:active {
+      background: #059669;
+    }
+    @media (max-width: 500px) {
+      .container {
+        max-width: 95vw;
+        padding: 12px;
+      }
+      button {
+        width: 90%;
+        margin: 6px 0;
+      }
+      .nombre-actual-label {
+        font-size: 1.1rem;
+      }
+      .restaurar-section input[type="password"] {
+        width: 60%;
+      }
+    }
+  </style>
 </head>
 <body>
-  <h2>Lista de nombres</h2>
-  <label id="nombreActual"></label><br><br>
-  <button id="btnAceptar">Aceptar</button>
-  <button id="btnReload">Reload</button>
-  <ul id="listaNombres"></ul>
+  <div class="container">
+    <h2>Lista de nombres compartida</h2>
+    <span class="nombre-actual-label" id="nombreActual"></span>
+    <div class="cantidad-label">
+      Quedan <span id="cantidadNombres"></span> nombre(s) en la lista
+    </div>
+    <button id="btnAceptar">Aceptar</button>
+    <button id="btnReload">Reload</button>
+
+    <div class="restaurar-section">
+      <div class="error-msg" id="errorMsg"></div>
+      <input type="password" id="passwordInput" placeholder="Contraseña para restaurar">
+      <button id="btnRestaurar">Restaurar lista</button>
+    </div>
+  </div>
 
   <script>
     let nombres = [];
     let nombreActual = "";
+    const PASSWORD_CORRECTA = "UTN2025";
 
-    function cargarNombres() {
+    function obtenerNombreAleatorio(arr) {
+      if (arr.length === 0) return "Lista vacía";
+      const idx = Math.floor(Math.random() * arr.length);
+      return arr[idx];
+    }
+
+    function cargarNombres(setRandom = true) {
       fetch('/nombres')
         .then(res => res.json())
         .then(data => {
           nombres = data;
-          mostrarNombres();
+          mostrarNombres(setRandom);
         });
     }
 
-    function mostrarNombres() {
-      document.getElementById('listaNombres').innerHTML = '';
-      nombres.forEach((nombre, idx) => {
-        const li = document.createElement('li');
-        li.textContent = nombre;
-        document.getElementById('listaNombres').appendChild(li);
-      });
-      nombreActual = nombres.length > 0 ? nombres[0] : "Lista vacía";
+    function mostrarNombres(setRandom = true) {
+      if (nombres.length === 0) {
+        nombreActual = "Lista vacía";
+      } else if (setRandom) {
+        nombreActual = obtenerNombreAleatorio(nombres);
+      }
       document.getElementById('nombreActual').textContent = nombreActual;
+      document.getElementById('cantidadNombres').textContent = nombres.length;
+      document.getElementById('btnAceptar').disabled = (nombres.length === 0);
     }
 
     document.getElementById('btnAceptar').onclick = function() {
-      if (nombreActual !== "Lista vacía") {
+      if (nombres.length > 0 && nombreActual !== "Lista vacía") {
         fetch('/aceptar', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -45,16 +165,40 @@
         .then(res => res.json())
         .then(data => {
           nombres = data.nombres;
-          mostrarNombres();
+          mostrarNombres(true);
         });
       }
     };
 
     document.getElementById('btnReload').onclick = function() {
-      cargarNombres();
+      cargarNombres(true);
     };
 
-    cargarNombres();
+    document.getElementById('btnRestaurar').onclick = function() {
+      // Lee la contraseña
+      const pw = document.getElementById('passwordInput').value;
+      const errorMsg = document.getElementById('errorMsg');
+      errorMsg.textContent = "";
+      if (pw !== PASSWORD_CORRECTA) {
+        errorMsg.textContent = "Contraseña incorrecta";
+        return;
+      }
+      // Reset lista en el servidor
+      fetch('/restaurar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      })
+      .then(res => res.json())
+      .then(data => {
+        nombres = data.nombres;
+        mostrarNombres(true);
+        errorMsg.textContent = "¡Lista restaurada!";
+        setTimeout(() => { errorMsg.textContent = ""; }, 2000);
+        document.getElementById('passwordInput').value = "";
+      });
+    };
+
+    cargarNombres(true);
   </script>
 </body>
 </html>
