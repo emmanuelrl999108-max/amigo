@@ -1,6 +1,7 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
+  <meta charset="UTF-8">
   <title>Lista de nombres compartida</title>
 </head>
 <body>
@@ -15,7 +16,7 @@
     let nombreActual = "";
 
     function cargarNombres() {
-      fetch('https://TU_SERVER_URL/nombres')
+      fetch('/nombres')
         .then(res => res.json())
         .then(data => {
           nombres = data;
@@ -30,14 +31,13 @@
         li.textContent = nombre;
         document.getElementById('listaNombres').appendChild(li);
       });
-      // Mostrar el nombre actual (primer nombre)
       nombreActual = nombres.length > 0 ? nombres[0] : "Lista vacía";
       document.getElementById('nombreActual').textContent = nombreActual;
     }
 
     document.getElementById('btnAceptar').onclick = function() {
       if (nombreActual !== "Lista vacía") {
-        fetch('https://TU_SERVER_URL/aceptar', {
+        fetch('/aceptar', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ nombre: nombreActual })
@@ -54,7 +54,6 @@
       cargarNombres();
     };
 
-    // Inicializar al abrir la página
     cargarNombres();
   </script>
 </body>
