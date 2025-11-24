@@ -238,9 +238,14 @@
         .then(data => {
           nombres = data.nombres;
           ronda = data.ronda;
-          mostrarNombres(false);
+          // Aquí solo actualizamos la cantidad. Mantenemos el nombre guardado como está.
+          document.getElementById('cantidadNombres').textContent = nombres.length;
           marcarAceptarRealizado();
           verificarEstadoReload();
+          // Opcional: desactiva el botón "Aceptar" si ya no está en la lista (aunque con el flag igualmente)
+          if (!nombres.includes(nombreActual)) {
+            document.getElementById('btnAceptar').disabled = true;
+          }
         });
       }
     };
